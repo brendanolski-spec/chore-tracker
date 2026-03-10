@@ -233,7 +233,13 @@ export default function ChoreTracker() {
           <h1 className="text-4xl font-bold tracking-tight">Chore Tracker</h1>
           <div className="flex gap-4 items-center">
             <button
-              onClick={() => setTestMode(!testMode)}
+              onClick={() => {
+                if (testMode) {
+                  // Exiting test mode - reset offset
+                  setTestDateOffset(0);
+                }
+                setTestMode(!testMode);
+              }}
               className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
                 testMode 
                   ? 'bg-red-600 hover:bg-red-700' 
