@@ -170,6 +170,8 @@ export default function ChoreTracker() {
       setData(newData);
     }
   };
+
+  const handleTrash = (user) => {
     const newData = { ...data };
     const currentWeek = getCurrentWeek();
     
@@ -178,18 +180,6 @@ export default function ChoreTracker() {
     }
     
     newData.trash[user].bags += 1;
-    setData(newData);
-  };
-
-  const handleApplyPenalty = (user, penaltyDays) => {
-    const newData = { ...data };
-    const currentWeek = getCurrentWeek();
-    
-    if (newData.dishes[user].week !== currentWeek) {
-      newData.dishes[user] = { completed: 0, week: currentWeek, penaltyDays: 0 };
-    }
-    
-    newData.dishes[user].penaltyDays = penaltyDays;
     setData(newData);
   };
 
