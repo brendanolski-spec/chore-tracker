@@ -72,6 +72,11 @@ export default function ChoreTracker() {
     }
   }, [settings]);
 
+  useEffect(() => {
+    // Auto-apply penalty when overdue
+    applyPenaltyAutomatically();
+  }, [testDateOffset]);
+
   const getCurrentWeek = () => {
     const now = new Date();
     const adjustedDate = new Date(now.getTime() + testDateOffset * 24 * 60 * 60 * 1000);
@@ -147,7 +152,24 @@ export default function ChoreTracker() {
     setData(newData);
   };
 
-  const handleTrash = (user) => {
+  const applyPenaltyAutomatically = () => {
+    const bathroomStatus = getBathroomStatus();
+    if (!bathroomStatus || bathroomStatus.penalty === 0) return;
+    
+    const currentWeek = getCurrentWeek();
+    const nextCleaner = bathroomStatus.currentTurn;
+    const newData = { ...data };
+    
+    if (newData.dishes[nextCleaner].week !== currentWeek) {
+      newData.dishes[nextCleaner] = { completed: 0, week: currentWeek, penaltyDays: 0 };
+    }
+    
+    // Only apply if not already applied
+    if (newData.dishes[nextCleaner].penaltyDays === 0) {
+      newData.dishes[nextCleaner].penaltyDays = bathroomStatus.penalty;
+      setData(newData);
+    }
+  };
     const newData = { ...data };
     const currentWeek = getCurrentWeek();
     
@@ -224,7 +246,7 @@ export default function ChoreTracker() {
               }`}
               title="Test Mode"
             >
-              {testMode ? 'üß™ Test Mode ON' : 'Test Mode'}
+              {testMode ? 'Test Mode ON' : 'Test Mode'}
             </button>
             <button
               onClick={() => setTempSettings(settings) || setShowSettings(true)}
@@ -409,8 +431,8 @@ export default function ChoreTracker() {
                 bathroomStatus.isDue ? 'bg-yellow-900 border border-yellow-700' : 
                 bathroomStatus.isOverdue ? 'bg-red-900 border border-red-700' : 'bg-slate-700'
               }`}>
-                {bathroomStatus.isDue && <p className="text-sm font-semibold text-yellow-200">‚è∞ Should clean between days {settings.windowStartDay}-{settings.windowEndDay}</p>}
-                {bathroomStatus.isOverdue && <p className="text-sm font-semibold text-red-200">üö® Overdue! Penalty: {bathroomStatus.penalty} dish duties</p>}
+                {bathroomStatus.isDue && <p className="text-sm font-semibold text-yellow-200">Should clean between days {settings.windowStartDay}-{settings.windowEndDay}</p>}
+                {bathroomStatus.isOverdue && <p className="text-sm font-semibold text-red-200">Overdue! Penalty: {bathroomStatus.penalty} dish duties</p>}
               </div>
             )}
 
@@ -428,15 +450,6 @@ export default function ChoreTracker() {
                 {getName('user2')} Cleaned It
               </button>
             </div>
-
-            {bathroomStatus.penalty > 0 && bathroomStatus.isOverdue && (
-              <button
-                onClick={() => handleApplyPenalty(bathroomStatus.currentTurn, bathroomStatus.penalty)}
-                className="w-full mt-3 bg-red-600 hover:bg-red-700 text-white font-semibold py-2 rounded-lg transition-colors text-sm"
-              >
-                Apply {bathroomStatus.penalty} Dish Penalty
-              </button>
-            )}
           </div>
 
           {/* Dish Duty */}
@@ -463,13 +476,13 @@ export default function ChoreTracker() {
                         </span>
                       )}
                     </div>
-                    <button
-                      onClick={() => handleDishDuty(user)}
-                      className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg transition-colors text-sm flex items-center justify-center gap-2"
-                    >
-                      <Plus size={16} />
-                      Log Duty
-                    </button>
+              <button
+                onClick={() => handleDishDuty(user)}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg transition-colors text-sm flex items-center justify-center gap-2"
+              >
+                <Plus size={16} />
+                Log Duty
+              </button>
                   </div>
                 );
               })}
