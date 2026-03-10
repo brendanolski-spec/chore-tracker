@@ -7,6 +7,8 @@ export default function ChoreTracker() {
   const [showSettings, setShowSettings] = useState(false);
   const [tempSettings, setTempSettings] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [testMode, setTestMode] = useState(false);
+  const [testDateOffset, setTestDateOffset] = useState(0);
 
   // Initialize data and settings
   useEffect(() => {
@@ -22,6 +24,7 @@ export default function ChoreTracker() {
       dishDutiesPerWeek: 2,
       user1Name: 'You',
       user2Name: 'Your Brother',
+      weekStartDay: 0, // 0 = Sunday, 1 = Monday, etc.
     };
 
     if (initData) {
@@ -40,7 +43,8 @@ export default function ChoreTracker() {
         trash: {
           user1: { bags: 0, week: getCurrentWeek() },
           user2: { bags: 0, week: getCurrentWeek() }
-        }
+        },
+        weeklyHistory: {} // tracks past weeks
       };
       setData(newData);
       localStorage.setItem('choreData', JSON.stringify(newData));
@@ -70,7 +74,16 @@ export default function ChoreTracker() {
 
   const getCurrentWeek = () => {
     const now = new Date();
-    return `${now.getFullYear()}-W${Math.ceil((now.getDate()) / 7)}`;
+    const adjustedDate = new Date(now.getTime() + testDateOffset * 24 * 60 * 60 * 1000);
+    const weekStartDay = settings?.weekStartDay || 0;
+    
+    // Calculate week number based on custom week start day
+    const firstDay = new Date(adjustedDate.getFullYear(), 0, 1);
+    const firstWeekStart = new Date(firstDay);
+    firstWeekStart.setDate(firstDay.getDate() - ((firstDay.getDay() - weekStartDay + 7) % 7));
+    
+    const weekNum = Math.ceil((adjustedDate - firstWeekStart) / (7 * 24 * 60 * 60 * 1000)) + 1;
+    return `${adjustedDate.getFullYear()}-W${weekNum}`;
   };
 
   const getOther = (u) => u === 'user1' ? 'user2' : 'user1';
@@ -101,7 +114,8 @@ export default function ChoreTracker() {
     if (!data?.bathroom || !settings) return null;
     const lastClean = new Date(data.bathroom.lastCleanDate);
     const now = new Date();
-    const daysElapsed = Math.floor((now - lastClean) / (1000 * 60 * 60 * 24));
+    const adjustedNow = new Date(now.getTime() + testDateOffset * 24 * 60 * 60 * 1000);
+    const daysElapsed = Math.floor((adjustedNow - lastClean) / (1000 * 60 * 60 * 24));
     const nextCleaner = data.bathroom.lastCleaner === 'user1' ? 'user2' : 'user1';
     
     let penalty = 0;
@@ -158,16 +172,26 @@ export default function ChoreTracker() {
   };
 
   const resetWeek = () => {
-    const newData = {
-      ...data,
-      dishes: {
-        user1: { completed: 0, week: getCurrentWeek(), penaltyDays: 0 },
-        user2: { completed: 0, week: getCurrentWeek(), penaltyDays: 0 }
-      },
-      trash: {
-        user1: { bags: 0, week: getCurrentWeek() },
-        user2: { bags: 0, week: getCurrentWeek() }
-      }
+    const currentWeek = getCurrentWeek();
+    const newData = { ...data };
+    
+    // Save current week to history
+    newData.weeklyHistory = newData.weeklyHistory || {};
+    newData.weeklyHistory[currentWeek] = {
+      user1Dishes: newData.dishes.user1.completed,
+      user2Dishes: newData.dishes.user2.completed,
+      user1Trash: newData.trash.user1.bags,
+      user2Trash: newData.trash.user2.bags,
+    };
+    
+    // Reset current week
+    newData.dishes = {
+      user1: { completed: 0, week: currentWeek, penaltyDays: 0 },
+      user2: { completed: 0, week: currentWeek, penaltyDays: 0 }
+    };
+    newData.trash = {
+      user1: { bags: 0, week: currentWeek },
+      user2: { bags: 0, week: currentWeek }
     };
     setData(newData);
   };
@@ -190,20 +214,33 @@ export default function ChoreTracker() {
         {/* Header */}
         <div className="flex justify-between items-center mb-12">
           <h1 className="text-4xl font-bold tracking-tight">Chore Tracker</h1>
-          <button
-            onClick={() => setTempSettings(settings) || setShowSettings(true)}
-            className="p-3 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
-            title="Settings"
-          >
-            <Settings size={24} />
-          </button>
+          <div className="flex gap-4 items-center">
+            <button
+              onClick={() => setTestMode(!testMode)}
+              className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
+                testMode 
+                  ? 'bg-red-600 hover:bg-red-700' 
+                  : 'bg-slate-700 hover:bg-slate-600'
+              }`}
+              title="Test Mode"
+            >
+              {testMode ? 'üß™ Test Mode ON' : 'Test Mode'}
+            </button>
+            <button
+              onClick={() => setTempSettings(settings) || setShowSettings(true)}
+              className="p-3 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
+              title="Settings"
+            >
+              <Settings size={24} />
+            </button>
+          </div>
         </div>
 
         {/* Settings Modal */}
         {showSettings && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-slate-800 rounded-2xl p-8 max-w-md w-full border border-slate-700">
-              <div className="flex justify-between items-center mb-6">
+            <div className="bg-slate-800 rounded-2xl p-8 max-w-md w-full border border-slate-700 max-h-[80vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-6 sticky top-0 bg-slate-800">
                 <h2 className="text-2xl font-bold">Settings</h2>
                 <button
                   onClick={() => setShowSettings(false)}
@@ -232,6 +269,25 @@ export default function ChoreTracker() {
                     onChange={(e) => setTempSettings({...tempSettings, user2Name: e.target.value})}
                     className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white"
                   />
+                </div>
+
+                <hr className="border-slate-600" />
+
+                <div>
+                  <label className="block text-sm font-semibold mb-2">Week Starts On</label>
+                  <select
+                    value={tempSettings?.weekStartDay || 0}
+                    onChange={(e) => setTempSettings({...tempSettings, weekStartDay: parseInt(e.target.value)})}
+                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white"
+                  >
+                    <option value={0}>Sunday</option>
+                    <option value={1}>Monday</option>
+                    <option value={2}>Tuesday</option>
+                    <option value={3}>Wednesday</option>
+                    <option value={4}>Thursday</option>
+                    <option value={5}>Friday</option>
+                    <option value={6}>Saturday</option>
+                  </select>
                 </div>
 
                 <hr className="border-slate-600" />
@@ -298,12 +354,36 @@ export default function ChoreTracker() {
                   />
                 </div>
 
+                {testMode && (
+                  <>
+                    <hr className="border-slate-600" />
+                    <div>
+                      <label className="block text-sm font-semibold mb-2">Test Mode: Day Offset</label>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setTestDateOffset(testDateOffset - 1)}
+                          className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-2 rounded-lg transition-colors"
+                        >
+                          ‚Üê Back 1 Day
+                        </button>
+                        <button
+                          onClick={() => setTestDateOffset(testDateOffset + 1)}
+                          className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-2 rounded-lg transition-colors"
+                        >
+                          Forward 1 Day ‚Üí
+                        </button>
+                      </div>
+                      <p className="text-xs text-slate-400 mt-2">Current offset: {testDateOffset} days</p>
+                    </div>
+                  </>
+                )}
+
                 <button
                   onClick={handleSaveSettings}
                   className="w-full mt-6 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg transition-colors flex items-center justify-center gap-2"
                 >
                   <Save size={18} />
-                  Save Settings
+                  Save & Close
                 </button>
               </div>
             </div>
@@ -339,13 +419,13 @@ export default function ChoreTracker() {
                 onClick={() => handleBathroomClean('user1')}
                 className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg transition-colors"
               >
-                You Cleaned It
+                {getName('user1')} Cleaned It
               </button>
               <button
                 onClick={() => handleBathroomClean('user2')}
                 className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 rounded-lg transition-colors"
               >
-                Brother Cleaned It
+                {getName('user2')} Cleaned It
               </button>
             </div>
 
@@ -437,16 +517,53 @@ export default function ChoreTracker() {
           </div>
         </div>
 
+        {/* History Dashboard */}
+        <div className="bg-slate-800 border border-slate-700 rounded-2xl p-8 mb-8">
+          <h2 className="text-xl font-bold mb-6 text-slate-300">Performance History</h2>
+          {Object.keys(data.weeklyHistory || {}).length === 0 ? (
+            <p className="text-slate-400">No history yet. Complete a week and click "Reset Week" to start tracking.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-slate-700">
+                    <th className="text-left py-3 px-4 text-slate-300 font-semibold">Week</th>
+                    <th className="text-left py-3 px-4 text-slate-300 font-semibold">{getName('user1')} Dishes</th>
+                    <th className="text-left py-3 px-4 text-slate-300 font-semibold">{getName('user2')} Dishes</th>
+                    <th className="text-left py-3 px-4 text-slate-300 font-semibold">{getName('user1')} Trash</th>
+                    <th className="text-left py-3 px-4 text-slate-300 font-semibold">{getName('user2')} Trash</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.entries(data.weeklyHistory || {}).sort().reverse().map(([week, stats]) => (
+                    <tr key={week} className="border-b border-slate-700 hover:bg-slate-700">
+                      <td className="py-3 px-4 text-slate-300">{week}</td>
+                      <td className="py-3 px-4 text-blue-400 font-semibold">{stats.user1Dishes}</td>
+                      <td className="py-3 px-4 text-purple-400 font-semibold">{stats.user2Dishes}</td>
+                      <td className="py-3 px-4 text-orange-400 font-semibold">{stats.user1Trash}</td>
+                      <td className="py-3 px-4 text-orange-400 font-semibold">{stats.user2Trash}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
         {/* History */}
         <div className="bg-slate-800 border border-slate-700 rounded-2xl p-8">
-          <h2 className="text-xl font-bold mb-6 text-slate-300">Bathroom History</h2>
+          <h2 className="text-xl font-bold mb-6 text-slate-300">Bathroom Cleaning History</h2>
           <div className="space-y-2 max-h-48 overflow-y-auto">
-            {[...data.bathroom.history].reverse().map((entry, idx) => (
-              <div key={idx} className="flex justify-between items-center p-3 bg-slate-700 rounded-lg text-sm">
-                <span>{getName(entry.cleaner)} cleaned</span>
-                <span className="text-slate-400">{new Date(entry.date).toLocaleDateString()}</span>
-              </div>
-            ))}
+            {data.bathroom.history.length === 0 ? (
+              <p className="text-slate-400">No bathroom cleanings logged yet.</p>
+            ) : (
+              [...data.bathroom.history].reverse().map((entry, idx) => (
+                <div key={idx} className="flex justify-between items-center p-3 bg-slate-700 rounded-lg text-sm">
+                  <span>{getName(entry.cleaner)} cleaned</span>
+                  <span className="text-slate-400">{new Date(entry.date).toLocaleDateString()}</span>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>
