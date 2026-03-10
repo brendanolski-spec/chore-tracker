@@ -99,11 +99,16 @@ export default function ChoreTracker() {
     const newData = { ...data };
     const other = getOther(cleaner);
     
+    // Use current time adjusted by test offset
+    const now = new Date();
+    const adjustedDate = new Date(now.getTime() + testDateOffset * 24 * 60 * 60 * 1000);
+    const cleanDate = adjustedDate.toISOString();
+    
     newData.bathroom.lastCleaner = cleaner;
-    newData.bathroom.lastCleanDate = new Date().toISOString();
+    newData.bathroom.lastCleanDate = cleanDate;
     newData.bathroom.history.push({
       cleaner,
-      date: newData.bathroom.lastCleanDate,
+      date: cleanDate,
       daysCleaned: 0
     });
 
