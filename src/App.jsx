@@ -10,6 +10,7 @@ export default function ChoreTracker() {
   const [loading, setLoading] = useState(true);
   const [testMode, setTestMode] = useState(false);
   const [testDateOffset, setTestDateOffset] = useState(0);
+  const [editingWeek, setEditingWeek] = useState(null);
 
   // Initialize data and settings
   useEffect(() => {
@@ -77,6 +78,44 @@ export default function ChoreTracker() {
     // Auto-apply penalty when overdue
     applyPenaltyAutomatically();
   }, [testDateOffset]);
+
+  useEffect(() => {
+    // Auto-populate performance history when week changes
+    if (!data || !settings) return;
+    
+    const currentWeek = getCurrentWeek();
+    const lastTrackedWeek = data.lastTrackedWeek;
+    
+    if (lastTrackedWeek && lastTrackedWeek !== currentWeek) {
+      // Week has changed, save the old week's data
+      const newData = { ...data };
+      newData.weeklyHistory = newData.weeklyHistory || {};
+      newData.weeklyHistory[lastTrackedWeek] = {
+        user1Dishes: newData.dishes.user1.completed,
+        user2Dishes: newData.dishes.user2.completed,
+        user1Trash: newData.trash.user1.bags,
+        user2Trash: newData.trash.user2.bags,
+      };
+      
+      // Reset current week
+      newData.dishes = {
+        user1: { completed: 0, week: currentWeek, penaltyDays: 0 },
+        user2: { completed: 0, week: currentWeek, penaltyDays: 0 }
+      };
+      newData.trash = {
+        user1: { bags: 0, week: currentWeek },
+        user2: { bags: 0, week: currentWeek }
+      };
+      newData.lastTrackedWeek = currentWeek;
+      
+      setData(newData);
+    } else if (!lastTrackedWeek) {
+      // First time, just set the tracked week
+      const newData = { ...data };
+      newData.lastTrackedWeek = currentWeek;
+      setData(newData);
+    }
+  }, [getCurrentWeek()]);
 
   const getCurrentWeek = () => {
     const now = new Date();
@@ -196,6 +235,18 @@ export default function ChoreTracker() {
     
     newData.trash[user].bags += 1;
     setWorkingData(newData);
+  };
+
+  const updatePerformanceHistory = (week, metric, change) => {
+    const workingData = testMode ? testData : data;
+    const setWorkingData = testMode ? setTestData : setData;
+    const newData = { ...workingData };
+    
+    if (newData.weeklyHistory[week]) {
+      const newValue = Math.max(0, newData.weeklyHistory[week][metric] + change);
+      newData.weeklyHistory[week][metric] = newValue;
+      setWorkingData(newData);
+    }
   };
 
   const resetWeek = () => {
@@ -567,12 +618,112 @@ export default function ChoreTracker() {
                 </thead>
                 <tbody>
                   {Object.entries(workingData.weeklyHistory || {}).sort().reverse().map(([week, stats]) => (
-                    <tr key={week} className="border-b border-slate-700 hover:bg-slate-700">
+                    <tr key={week} className="border-b border-slate-700 hover:bg-slate-700 group">
                       <td className="py-3 px-4 text-slate-300">{week}</td>
-                      <td className="py-3 px-4 text-blue-400 font-semibold">{stats.user1Dishes}</td>
-                      <td className="py-3 px-4 text-purple-400 font-semibold">{stats.user2Dishes}</td>
-                      <td className="py-3 px-4 text-orange-400 font-semibold">{stats.user1Trash}</td>
-                      <td className="py-3 px-4 text-orange-400 font-semibold">{stats.user2Trash}</td>
+                      {editingWeek === week ? (
+                        <>
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-2">
+                              <span className="text-blue-400 font-semibold">{stats.user1Dishes}</span>
+                              <div className="flex flex-col">
+                                <button
+                                  onClick={() => updatePerformanceHistory(week, 'user1Dishes', 1)}
+                                  className="text-blue-400 hover:text-blue-300 text-xs leading-none"
+                                >
+                                  ‚ñ≤
+                                </button>
+                                <button
+                                  onClick={() => updatePerformanceHistory(week, 'user1Dishes', -1)}
+                                  className="text-blue-400 hover:text-blue-300 text-xs leading-none"
+                                >
+                                  ‚ñº
+                                </button>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-2">
+                              <span className="text-purple-400 font-semibold">{stats.user2Dishes}</span>
+                              <div className="flex flex-col">
+                                <button
+                                  onClick={() => updatePerformanceHistory(week, 'user2Dishes', 1)}
+                                  className="text-purple-400 hover:text-purple-300 text-xs leading-none"
+                                >
+                                  ‚ñ≤
+                                </button>
+                                <button
+                                  onClick={() => updatePerformanceHistory(week, 'user2Dishes', -1)}
+                                  className="text-purple-400 hover:text-purple-300 text-xs leading-none"
+                                >
+                                  ‚ñº
+                                </button>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-2">
+                              <span className="text-orange-400 font-semibold">{stats.user1Trash}</span>
+                              <div className="flex flex-col">
+                                <button
+                                  onClick={() => updatePerformanceHistory(week, 'user1Trash', 1)}
+                                  className="text-orange-400 hover:text-orange-300 text-xs leading-none"
+                                >
+                                  ‚ñ≤
+                                </button>
+                                <button
+                                  onClick={() => updatePerformanceHistory(week, 'user1Trash', -1)}
+                                  className="text-orange-400 hover:text-orange-300 text-xs leading-none"
+                                >
+                                  ‚ñº
+                                </button>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-2">
+                              <span className="text-orange-400 font-semibold">{stats.user2Trash}</span>
+                              <div className="flex flex-col">
+                                <button
+                                  onClick={() => updatePerformanceHistory(week, 'user2Trash', 1)}
+                                  className="text-orange-400 hover:text-orange-300 text-xs leading-none"
+                                >
+                                  ‚ñ≤
+                                </button>
+                                <button
+                                  onClick={() => updatePerformanceHistory(week, 'user2Trash', -1)}
+                                  className="text-orange-400 hover:text-orange-300 text-xs leading-none"
+                                >
+                                  ‚ñº
+                                </button>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            <button
+                              onClick={() => setEditingWeek(null)}
+                              className="text-slate-400 hover:text-slate-200 text-sm"
+                            >
+                              Done
+                            </button>
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="py-3 px-4 text-blue-400 font-semibold">{stats.user1Dishes}</td>
+                          <td className="py-3 px-4 text-purple-400 font-semibold">{stats.user2Dishes}</td>
+                          <td className="py-3 px-4 text-orange-400 font-semibold">{stats.user1Trash}</td>
+                          <td className="py-3 px-4 text-orange-400 font-semibold">{stats.user2Trash}</td>
+                          <td className="py-3 px-4 text-right opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                              onClick={() => setEditingWeek(week)}
+                              className="text-slate-400 hover:text-slate-200"
+                              title="Edit"
+                            >
+                              ‚úèÔ∏è
+                            </button>
+                          </td>
+                        </>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -598,8 +749,19 @@ export default function ChoreTracker() {
           </div>
         </div>
 
-        {/* Clear History Button */}
-        <div className="flex justify-center">
+        {/* Clear History Buttons */}
+        <div className="flex justify-center gap-4">
+          <button
+            onClick={() => {
+              const setWorkingData = testMode ? setTestData : setData;
+              const newData = { ...workingData };
+              newData.bathroom.history = [];
+              setWorkingData(newData);
+            }}
+            className="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-6 rounded-lg transition-colors"
+          >
+            Clear Bathroom History
+          </button>
           <button
             onClick={() => {
               const setWorkingData = testMode ? setTestData : setData;
