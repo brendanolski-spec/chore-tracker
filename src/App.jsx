@@ -3,6 +3,7 @@ import { Plus, RotateCw, Trash2, Settings, X, Save } from 'lucide-react';
 
 export default function ChoreTracker() {
   const [data, setData] = useState(null);
+  const [testData, setTestData] = useState(null);
   const [settings, setSettings] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [tempSettings, setTempSettings] = useState(null);
@@ -96,7 +97,9 @@ export default function ChoreTracker() {
   const getOtherName = (u) => u === 'user1' ? (settings?.user2Name || 'Your Brother') : (settings?.user1Name || 'You');
 
   const handleBathroomClean = (cleaner) => {
-    const newData = { ...data };
+    const workingData = testMode ? testData : data;
+    const setWorkingData = testMode ? setTestData : setData;
+    const newData = { ...workingData };
     const other = getOther(cleaner);
     
     // Use current time adjusted by test offset
@@ -117,16 +120,17 @@ export default function ChoreTracker() {
       newData.dishes[other].penaltyDays = 0;
     }
 
-    setData(newData);
+    setWorkingData(newData);
   };
 
   const getBathroomStatus = () => {
-    if (!data?.bathroom || !settings) return null;
-    const lastClean = new Date(data.bathroom.lastCleanDate);
+    const workingData = testMode ? testData : data;
+    if (!workingData?.bathroom || !settings) return null;
+    const lastClean = new Date(workingData.bathroom.lastCleanDate);
     const now = new Date();
     const adjustedNow = new Date(now.getTime() + testDateOffset * 24 * 60 * 60 * 1000);
     const daysElapsed = Math.floor((adjustedNow - lastClean) / (1000 * 60 * 60 * 24));
-    const nextCleaner = data.bathroom.lastCleaner === 'user1' ? 'user2' : 'user1';
+    const nextCleaner = workingData.bathroom.lastCleaner === 'user1' ? 'user2' : 'user1';
     
     let penalty = 0;
     if (daysElapsed === settings.bathroomWindow) {
@@ -146,7 +150,9 @@ export default function ChoreTracker() {
   };
 
   const handleDishDuty = (user) => {
-    const newData = { ...data };
+    const workingData = testMode ? testData : data;
+    const setWorkingData = testMode ? setTestData : setData;
+    const newData = { ...workingData };
     const currentWeek = getCurrentWeek();
     
     if (newData.dishes[user].week !== currentWeek) {
@@ -154,7 +160,7 @@ export default function ChoreTracker() {
     }
     
     newData.dishes[user].completed += 1;
-    setData(newData);
+    setWorkingData(newData);
   };
 
   const applyPenaltyAutomatically = () => {
@@ -163,21 +169,25 @@ export default function ChoreTracker() {
     
     const currentWeek = getCurrentWeek();
     const nextCleaner = bathroomStatus.currentTurn;
-    const newData = { ...data };
+    const workingData = testMode ? testData : data;
+    const setWorkingData = testMode ? setTestData : setData;
+    const newData = { ...workingData };
     
     if (newData.dishes[nextCleaner].week !== currentWeek) {
       newData.dishes[nextCleaner] = { completed: 0, week: currentWeek, penaltyDays: 0 };
     }
     
-    // Only apply if not already applied
-    if (newData.dishes[nextCleaner].penaltyDays === 0) {
+    // Always update to the current penalty value (not just if it's 0)
+    if (newData.dishes[nextCleaner].penaltyDays !== bathroomStatus.penalty) {
       newData.dishes[nextCleaner].penaltyDays = bathroomStatus.penalty;
-      setData(newData);
+      setWorkingData(newData);
     }
   };
 
   const handleTrash = (user) => {
-    const newData = { ...data };
+    const workingData = testMode ? testData : data;
+    const setWorkingData = testMode ? setTestData : setData;
+    const newData = { ...workingData };
     const currentWeek = getCurrentWeek();
     
     if (newData.trash[user].week !== currentWeek) {
@@ -185,12 +195,14 @@ export default function ChoreTracker() {
     }
     
     newData.trash[user].bags += 1;
-    setData(newData);
+    setWorkingData(newData);
   };
 
   const resetWeek = () => {
+    const workingData = testMode ? testData : data;
+    const setWorkingData = testMode ? setTestData : setData;
     const currentWeek = getCurrentWeek();
-    const newData = { ...data };
+    const newData = { ...workingData };
     
     // Save current week to history
     newData.weeklyHistory = newData.weeklyHistory || {};
@@ -210,7 +222,7 @@ export default function ChoreTracker() {
       user1: { bags: 0, week: currentWeek },
       user2: { bags: 0, week: currentWeek }
     };
-    setData(newData);
+    setWorkingData(newData);
   };
 
   const handleSaveSettings = () => {
@@ -222,6 +234,7 @@ export default function ChoreTracker() {
     return <div className="flex items-center justify-center h-screen bg-gradient-to-br from-slate-900 to-slate-800 text-white">Loading...</div>;
   }
 
+  const workingData = testMode ? testData : data;
   const bathroomStatus = getBathroomStatus();
   const currentWeek = getCurrentWeek();
 
@@ -234,8 +247,12 @@ export default function ChoreTracker() {
           <div className="flex gap-4 items-center">
             <button
               onClick={() => {
-                if (testMode) {
-                  // Exiting test mode - reset offset
+                if (!testMode) {
+                  // Entering test mode - create a snapshot of live data
+                  setTestData(JSON.parse(JSON.stringify(data)));
+                } else {
+                  // Exiting test mode - discard test data and reset offset
+                  setTestData(null);
                   setTestDateOffset(0);
                 }
                 setTestMode(!testMode);
@@ -459,7 +476,7 @@ export default function ChoreTracker() {
             
             <div className="space-y-4 mb-6">
               {['user1', 'user2'].map((user) => {
-                const dishes = data.dishes[user];
+                const dishes = workingData.dishes[user];
                 const targetDuties = settings.dishDutiesPerWeek + (dishes.penaltyDays || 0);
                 const remaining = Math.max(0, targetDuties - dishes.completed);
                 
@@ -507,7 +524,7 @@ export default function ChoreTracker() {
                 <div key={user} className="p-4 bg-slate-700 rounded-lg">
                   <p className="text-sm text-slate-300 mb-3">{getName(user)}</p>
                   <div className="flex items-center justify-between mb-3">
-                    <p className="text-3xl font-bold">{data.trash[user].bags}</p>
+                    <p className="text-3xl font-bold">{workingData.trash[user].bags}</p>
                     <p className="text-xs text-slate-400">bags</p>
                   </div>
                   <button
@@ -534,7 +551,7 @@ export default function ChoreTracker() {
         {/* History Dashboard */}
         <div className="bg-slate-800 border border-slate-700 rounded-2xl p-8 mb-8">
           <h2 className="text-xl font-bold mb-6 text-slate-300">Performance History</h2>
-          {Object.keys(data.weeklyHistory || {}).length === 0 ? (
+          {Object.keys(workingData.weeklyHistory || {}).length === 0 ? (
             <p className="text-slate-400">No history yet. Complete a week and click "Reset Week" to start tracking.</p>
           ) : (
             <div className="overflow-x-auto">
@@ -549,7 +566,7 @@ export default function ChoreTracker() {
                   </tr>
                 </thead>
                 <tbody>
-                  {Object.entries(data.weeklyHistory || {}).sort().reverse().map(([week, stats]) => (
+                  {Object.entries(workingData.weeklyHistory || {}).sort().reverse().map(([week, stats]) => (
                     <tr key={week} className="border-b border-slate-700 hover:bg-slate-700">
                       <td className="py-3 px-4 text-slate-300">{week}</td>
                       <td className="py-3 px-4 text-blue-400 font-semibold">{stats.user1Dishes}</td>
@@ -565,13 +582,13 @@ export default function ChoreTracker() {
         </div>
 
         {/* History */}
-        <div className="bg-slate-800 border border-slate-700 rounded-2xl p-8">
+        <div className="bg-slate-800 border border-slate-700 rounded-2xl p-8 mb-8">
           <h2 className="text-xl font-bold mb-6 text-slate-300">Bathroom Cleaning History</h2>
           <div className="space-y-2 max-h-48 overflow-y-auto">
-            {data.bathroom.history.length === 0 ? (
+            {workingData.bathroom.history.length === 0 ? (
               <p className="text-slate-400">No bathroom cleanings logged yet.</p>
             ) : (
-              [...data.bathroom.history].reverse().map((entry, idx) => (
+              [...workingData.bathroom.history].reverse().map((entry, idx) => (
                 <div key={idx} className="flex justify-between items-center p-3 bg-slate-700 rounded-lg text-sm">
                   <span>{getName(entry.cleaner)} cleaned</span>
                   <span className="text-slate-400">{new Date(entry.date).toLocaleDateString()}</span>
@@ -579,6 +596,21 @@ export default function ChoreTracker() {
               ))
             )}
           </div>
+        </div>
+
+        {/* Clear History Button */}
+        <div className="flex justify-center">
+          <button
+            onClick={() => {
+              const setWorkingData = testMode ? setTestData : setData;
+              const newData = { ...workingData };
+              newData.weeklyHistory = {};
+              setWorkingData(newData);
+            }}
+            className="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-6 rounded-lg transition-colors"
+          >
+            Clear All Performance History
+          </button>
         </div>
       </div>
     </div>
