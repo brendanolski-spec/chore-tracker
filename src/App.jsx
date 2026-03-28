@@ -29,9 +29,27 @@ export default function ChoreTracker() {
       weekStartDay: 0, // 0 = Sunday, 1 = Monday, etc.
     };
 
-    if (initData) {
-      setData(JSON.parse(initData));
+    // Set settings first
+    let loadedSettings = defaultSettings;
+    if (initSettings) {
+      loadedSettings = JSON.parse(initSettings);
+      setSettings(loadedSettings);
     } else {
+      setSettings(defaultSettings);
+      localStorage.setItem('choreSettings', JSON.stringify(defaultSettings));
+    }
+
+    // Now load/create data after settings are ready
+    if (initData) {
+      const parsedData = JSON.parse(initData);
+      // Ensure lastTrackedWeek exists
+      if (!parsedData.lastTrackedWeek) {
+        parsedData.lastTrackedWeek = null;
+      }
+      setData(parsedData);
+    } else {
+      // Create default week string without calling getCurrentWeek yet
+      const defaultWeek = `${new Date().getFullYear()}-W1`;
       const newData = {
         bathroom: {
           lastCleaner: 'user1',
@@ -39,24 +57,18 @@ export default function ChoreTracker() {
           history: []
         },
         dishes: {
-          user1: { completed: 0, week: getCurrentWeek(), penaltyDays: 0 },
-          user2: { completed: 0, week: getCurrentWeek(), penaltyDays: 0 }
+          user1: { completed: 0, week: defaultWeek, penaltyDays: 0 },
+          user2: { completed: 0, week: defaultWeek, penaltyDays: 0 }
         },
         trash: {
-          user1: { bags: 0, week: getCurrentWeek() },
-          user2: { bags: 0, week: getCurrentWeek() }
+          user1: { bags: 0, week: defaultWeek },
+          user2: { bags: 0, week: defaultWeek }
         },
-        weeklyHistory: {} // tracks past weeks
+        weeklyHistory: {},
+        lastTrackedWeek: null
       };
       setData(newData);
       localStorage.setItem('choreData', JSON.stringify(newData));
-    }
-
-    if (initSettings) {
-      setSettings(JSON.parse(initSettings));
-    } else {
-      setSettings(defaultSettings);
-      localStorage.setItem('choreSettings', JSON.stringify(defaultSettings));
     }
 
     setLoading(false);
@@ -79,15 +91,15 @@ export default function ChoreTracker() {
     applyPenaltyAutomatically();
   }, [testDateOffset]);
 
+  // Auto-populate performance history when week changes
   useEffect(() => {
-    // Auto-populate performance history when week changes
     if (!data || !settings) return;
     
     const currentWeek = getCurrentWeek();
     const lastTrackedWeek = data.lastTrackedWeek;
     
+    // Only run if lastTrackedWeek was initialized and has changed
     if (lastTrackedWeek && lastTrackedWeek !== currentWeek) {
-      // Week has changed, save the old week's data
       const newData = { ...data };
       newData.weeklyHistory = newData.weeklyHistory || {};
       newData.weeklyHistory[lastTrackedWeek] = {
@@ -109,13 +121,13 @@ export default function ChoreTracker() {
       newData.lastTrackedWeek = currentWeek;
       
       setData(newData);
-    } else if (!lastTrackedWeek) {
-      // First time, just set the tracked week
+    } else if (!lastTrackedWeek && data.dishes?.user1?.week) {
+      // First time initialization - just set lastTrackedWeek
       const newData = { ...data };
-      newData.lastTrackedWeek = currentWeek;
+      newData.lastTrackedWeek = data.dishes.user1.week;
       setData(newData);
     }
-  }, [getCurrentWeek()]);
+  }, [data?.lastTrackedWeek, testDateOffset]);
 
   const getCurrentWeek = () => {
     const now = new Date();
