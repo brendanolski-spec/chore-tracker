@@ -93,24 +93,29 @@ export default function ChoreTracker() {
 
   // Auto-populate performance history when week changes
   useEffect(() => {
-    if (!data || !settings) return;
+    const workingData = testMode ? testData : data;
+    if (!workingData || !settings) return;
     
     const currentWeek = getCurrentWeek();
-    const lastTrackedWeek = data.lastTrackedWeek;
-    const currentDishWeek = data.dishes?.user1?.week;
+    const lastTrackedWeek = workingData.lastTrackedWeek;
+    const currentDishWeek = workingData.dishes?.user1?.week;
     
     // Initialize lastTrackedWeek if it doesn't exist
     if (!lastTrackedWeek && currentDishWeek) {
-      const newData = { ...data };
+      const newData = { ...workingData };
       newData.lastTrackedWeek = currentDishWeek;
-      setData(newData);
+      if (testMode) {
+        setTestData(newData);
+      } else {
+        setData(newData);
+      }
       return;
     }
     
     // Check if we've moved to a new week
     if (lastTrackedWeek && lastTrackedWeek !== currentWeek) {
       // Week has changed, save the old week's data
-      const newData = { ...data };
+      const newData = { ...workingData };
       newData.weeklyHistory = newData.weeklyHistory || {};
       newData.weeklyHistory[lastTrackedWeek] = {
         user1Dishes: newData.dishes.user1.completed,
@@ -130,9 +135,13 @@ export default function ChoreTracker() {
       };
       newData.lastTrackedWeek = currentWeek;
       
-      setData(newData);
+      if (testMode) {
+        setTestData(newData);
+      } else {
+        setData(newData);
+      }
     }
-  }, [data?.lastTrackedWeek, testDateOffset, settings]);
+  }, [testMode, data?.lastTrackedWeek, testData?.lastTrackedWeek, testDateOffset, settings]);
 
   const getCurrentWeek = () => {
     const now = new Date();
@@ -645,15 +654,15 @@ export default function ChoreTracker() {
                               <div className="flex flex-col gap-1">
                                 <button
                                   onClick={() => updatePerformanceHistory(week, 'user1Dishes', 1)}
-                                  className="text-blue-400 hover:text-blue-300 text-sm leading-none"
+                                  className="text-blue-400 hover:text-blue-300 text-xs leading-none font-semibold"
                                 >
-                                  ‚¨ÜÔ∏è
+                                  Up
                                 </button>
                                 <button
                                   onClick={() => updatePerformanceHistory(week, 'user1Dishes', -1)}
-                                  className="text-blue-400 hover:text-blue-300 text-sm leading-none"
+                                  className="text-blue-400 hover:text-blue-300 text-xs leading-none font-semibold"
                                 >
-                                  ‚¨áÔ∏è
+                                  Dn
                                 </button>
                               </div>
                             </div>
@@ -664,15 +673,15 @@ export default function ChoreTracker() {
                               <div className="flex flex-col gap-1">
                                 <button
                                   onClick={() => updatePerformanceHistory(week, 'user2Dishes', 1)}
-                                  className="text-purple-400 hover:text-purple-300 text-sm leading-none"
+                                  className="text-purple-400 hover:text-purple-300 text-xs leading-none font-semibold"
                                 >
-                                  ‚¨ÜÔ∏è
+                                  Up
                                 </button>
                                 <button
                                   onClick={() => updatePerformanceHistory(week, 'user2Dishes', -1)}
-                                  className="text-purple-400 hover:text-purple-300 text-sm leading-none"
+                                  className="text-purple-400 hover:text-purple-300 text-xs leading-none font-semibold"
                                 >
-                                  ‚¨áÔ∏è
+                                  Dn
                                 </button>
                               </div>
                             </div>
@@ -683,15 +692,15 @@ export default function ChoreTracker() {
                               <div className="flex flex-col gap-1">
                                 <button
                                   onClick={() => updatePerformanceHistory(week, 'user1Trash', 1)}
-                                  className="text-orange-400 hover:text-orange-300 text-sm leading-none"
+                                  className="text-orange-400 hover:text-orange-300 text-xs leading-none font-semibold"
                                 >
-                                  ‚¨ÜÔ∏è
+                                  Up
                                 </button>
                                 <button
                                   onClick={() => updatePerformanceHistory(week, 'user1Trash', -1)}
-                                  className="text-orange-400 hover:text-orange-300 text-sm leading-none"
+                                  className="text-orange-400 hover:text-orange-300 text-xs leading-none font-semibold"
                                 >
-                                  ‚¨áÔ∏è
+                                  Dn
                                 </button>
                               </div>
                             </div>
@@ -702,15 +711,15 @@ export default function ChoreTracker() {
                               <div className="flex flex-col gap-1">
                                 <button
                                   onClick={() => updatePerformanceHistory(week, 'user2Trash', 1)}
-                                  className="text-orange-400 hover:text-orange-300 text-sm leading-none"
+                                  className="text-orange-400 hover:text-orange-300 text-xs leading-none font-semibold"
                                 >
-                                  ‚¨ÜÔ∏è
+                                  Up
                                 </button>
                                 <button
                                   onClick={() => updatePerformanceHistory(week, 'user2Trash', -1)}
-                                  className="text-orange-400 hover:text-orange-300 text-sm leading-none"
+                                  className="text-orange-400 hover:text-orange-300 text-xs leading-none font-semibold"
                                 >
-                                  ‚¨áÔ∏è
+                                  Dn
                                 </button>
                               </div>
                             </div>
@@ -733,10 +742,10 @@ export default function ChoreTracker() {
                           <td className="py-3 px-4 text-right opacity-0 group-hover:opacity-100 transition-opacity">
                             <button
                               onClick={() => setEditingWeek(week)}
-                              className="text-slate-400 hover:text-slate-200"
+                              className="text-slate-400 hover:text-slate-200 text-sm"
                               title="Edit"
                             >
-                              ‚úèÔ∏è
+                              Edit
                             </button>
                           </td>
                         </>
