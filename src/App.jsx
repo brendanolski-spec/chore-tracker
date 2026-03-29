@@ -3,13 +3,10 @@ import { Plus, RotateCw, Trash2, Settings, X, Save } from 'lucide-react';
 
 export default function ChoreTracker() {
   const [data, setData] = useState(null);
-  const [testData, setTestData] = useState(null);
   const [settings, setSettings] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [tempSettings, setTempSettings] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [testMode, setTestMode] = useState(false);
-  const [testDateOffset, setTestDateOffset] = useState(0);
   const [editingWeek, setEditingWeek] = useState(null);
 
   // Initialize data and settings
@@ -89,33 +86,28 @@ export default function ChoreTracker() {
   useEffect(() => {
     // Auto-apply penalty when overdue
     applyPenaltyAutomatically();
-  }, [testDateOffset]);
+  }, []);
 
   // Auto-populate performance history when week changes
   useEffect(() => {
-    const workingData = testMode ? testData : data;
-    if (!workingData || !settings) return;
+    if (!data || !settings) return;
     
     const currentWeek = getCurrentWeek();
-    const lastTrackedWeek = workingData.lastTrackedWeek;
-    const currentDishWeek = workingData.dishes?.user1?.week;
+    const lastTrackedWeek = data.lastTrackedWeek;
+    const currentDishWeek = data.dishes?.user1?.week;
     
     // Initialize lastTrackedWeek if it doesn't exist
     if (!lastTrackedWeek && currentDishWeek) {
-      const newData = { ...workingData };
+      const newData = { ...data };
       newData.lastTrackedWeek = currentDishWeek;
-      if (testMode) {
-        setTestData(newData);
-      } else {
-        setData(newData);
-      }
+      setData(newData);
       return;
     }
     
     // Check if we've moved to a new week
     if (lastTrackedWeek && lastTrackedWeek !== currentWeek) {
       // Week has changed, save the old week's data
-      const newData = { ...workingData };
+      const newData = { ...data };
       newData.weeklyHistory = newData.weeklyHistory || {};
       newData.weeklyHistory[lastTrackedWeek] = {
         user1Dishes: newData.dishes.user1.completed,
@@ -135,13 +127,9 @@ export default function ChoreTracker() {
       };
       newData.lastTrackedWeek = currentWeek;
       
-      if (testMode) {
-        setTestData(newData);
-      } else {
-        setData(newData);
-      }
+      setData(newData);
     }
-  }, [testMode, data?.lastTrackedWeek, testData?.lastTrackedWeek, testDateOffset, settings]);
+  }, [data?.lastTrackedWeek, settings]);
 
   const getCurrentWeek = () => {
     const now = new Date();
@@ -162,15 +150,11 @@ export default function ChoreTracker() {
   const getOtherName = (u) => u === 'user1' ? (settings?.user2Name || 'Your Brother') : (settings?.user1Name || 'You');
 
   const handleBathroomClean = (cleaner) => {
-    const workingData = testMode ? testData : data;
-    const setWorkingData = testMode ? setTestData : setData;
-    const newData = { ...workingData };
+    const newData = { ...data };
     const other = getOther(cleaner);
     
-    // Use current time adjusted by test offset
     const now = new Date();
-    const adjustedDate = new Date(now.getTime() + testDateOffset * 24 * 60 * 60 * 1000);
-    const cleanDate = adjustedDate.toISOString();
+    const cleanDate = now.toISOString();
     
     newData.bathroom.lastCleaner = cleaner;
     newData.bathroom.lastCleanDate = cleanDate;
@@ -185,17 +169,20 @@ export default function ChoreTracker() {
       newData.dishes[other].penaltyDays = 0;
     }
 
-    setWorkingData(newData);
+    setData(newData);
   };
 
   const getBathroomStatus = () => {
-    const workingData = testMode ? testData : data;
-    if (!workingData?.bathroom || !settings) return null;
-    const lastClean = new Date(workingData.bathroom.lastCleanDate);
+    if (!data?.bathroom || !settings) return null;
+    const lastClean = new Date(data.bathroom.lastCleanDate);
     const now = new Date();
-    const adjustedNow = new Date(now.getTime() + testDateOffset * 24 * 60 * 60 * 1000);
-    const daysElapsed = Math.floor((adjustedNow - lastClean) / (1000 * 60 * 60 * 24));
-    const nextCleaner = workingData.bathroom.lastCleaner === 'user1' ? 'user2' : 'user1';
+    
+    // Calculate days elapsed based on calendar dates
+    const lastCleanDate = new Date(lastClean.getFullYear(), lastClean.getMonth(), lastClean.getDate());
+    const todayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const daysElapsed = Math.floor((todayDate - lastCleanDate) / (1000 * 60 * 60 * 24));
+    
+    const nextCleaner = data.bathroom.lastCleaner === 'user1' ? 'user2' : 'user1';
     
     let penalty = 0;
     if (daysElapsed === settings.bathroomWindow) {
@@ -215,9 +202,7 @@ export default function ChoreTracker() {
   };
 
   const handleDishDuty = (user) => {
-    const workingData = testMode ? testData : data;
-    const setWorkingData = testMode ? setTestData : setData;
-    const newData = { ...workingData };
+    const newData = { ...data };
     const currentWeek = getCurrentWeek();
     
     if (newData.dishes[user].week !== currentWeek) {
@@ -225,7 +210,19 @@ export default function ChoreTracker() {
     }
     
     newData.dishes[user].completed += 1;
-    setWorkingData(newData);
+    setData(newData);
+  };
+
+  const handleRemoveDishDuty = (user) => {
+    const newData = { ...data };
+    const currentWeek = getCurrentWeek();
+    
+    if (newData.dishes[user].week !== currentWeek) {
+      newData.dishes[user] = { completed: 0, week: currentWeek, penaltyDays: 0 };
+    }
+    
+    newData.dishes[user].completed = Math.max(0, newData.dishes[user].completed - 1);
+    setData(newData);
   };
 
   const applyPenaltyAutomatically = () => {
@@ -234,9 +231,7 @@ export default function ChoreTracker() {
     
     const currentWeek = getCurrentWeek();
     const nextCleaner = bathroomStatus.currentTurn;
-    const workingData = testMode ? testData : data;
-    const setWorkingData = testMode ? setTestData : setData;
-    const newData = { ...workingData };
+    const newData = { ...data };
     
     if (newData.dishes[nextCleaner].week !== currentWeek) {
       newData.dishes[nextCleaner] = { completed: 0, week: currentWeek, penaltyDays: 0 };
@@ -245,14 +240,12 @@ export default function ChoreTracker() {
     // Always update to the current penalty value (not just if it's 0)
     if (newData.dishes[nextCleaner].penaltyDays !== bathroomStatus.penalty) {
       newData.dishes[nextCleaner].penaltyDays = bathroomStatus.penalty;
-      setWorkingData(newData);
+      setData(newData);
     }
   };
 
   const handleTrash = (user) => {
-    const workingData = testMode ? testData : data;
-    const setWorkingData = testMode ? setTestData : setData;
-    const newData = { ...workingData };
+    const newData = { ...data };
     const currentWeek = getCurrentWeek();
     
     if (newData.trash[user].week !== currentWeek) {
@@ -260,46 +253,29 @@ export default function ChoreTracker() {
     }
     
     newData.trash[user].bags += 1;
-    setWorkingData(newData);
+    setData(newData);
+  };
+
+  const handleRemoveTrash = (user) => {
+    const newData = { ...data };
+    const currentWeek = getCurrentWeek();
+    
+    if (newData.trash[user].week !== currentWeek) {
+      newData.trash[user] = { bags: 0, week: currentWeek };
+    }
+    
+    newData.trash[user].bags = Math.max(0, newData.trash[user].bags - 1);
+    setData(newData);
   };
 
   const updatePerformanceHistory = (week, metric, change) => {
-    const workingData = testMode ? testData : data;
-    const setWorkingData = testMode ? setTestData : setData;
-    const newData = { ...workingData };
+    const newData = { ...data };
     
     if (newData.weeklyHistory[week]) {
       const newValue = Math.max(0, newData.weeklyHistory[week][metric] + change);
       newData.weeklyHistory[week][metric] = newValue;
-      setWorkingData(newData);
+      setData(newData);
     }
-  };
-
-  const resetWeek = () => {
-    const workingData = testMode ? testData : data;
-    const setWorkingData = testMode ? setTestData : setData;
-    const currentWeek = getCurrentWeek();
-    const newData = { ...workingData };
-    
-    // Save current week to history
-    newData.weeklyHistory = newData.weeklyHistory || {};
-    newData.weeklyHistory[currentWeek] = {
-      user1Dishes: newData.dishes.user1.completed,
-      user2Dishes: newData.dishes.user2.completed,
-      user1Trash: newData.trash.user1.bags,
-      user2Trash: newData.trash.user2.bags,
-    };
-    
-    // Reset current week
-    newData.dishes = {
-      user1: { completed: 0, week: currentWeek, penaltyDays: 0 },
-      user2: { completed: 0, week: currentWeek, penaltyDays: 0 }
-    };
-    newData.trash = {
-      user1: { bags: 0, week: currentWeek },
-      user2: { bags: 0, week: currentWeek }
-    };
-    setWorkingData(newData);
   };
 
   const handleSaveSettings = () => {
@@ -311,7 +287,6 @@ export default function ChoreTracker() {
     return <div className="flex items-center justify-center h-screen bg-gradient-to-br from-slate-900 to-slate-800 text-white">Loading...</div>;
   }
 
-  const workingData = testMode ? testData : data;
   const bathroomStatus = getBathroomStatus();
   const currentWeek = getCurrentWeek();
 
@@ -322,27 +297,6 @@ export default function ChoreTracker() {
         <div className="flex justify-between items-center mb-12">
           <h1 className="text-4xl font-bold tracking-tight">Chore Tracker</h1>
           <div className="flex gap-4 items-center">
-            <button
-              onClick={() => {
-                if (!testMode) {
-                  // Entering test mode - create a snapshot of live data
-                  setTestData(JSON.parse(JSON.stringify(data)));
-                } else {
-                  // Exiting test mode - discard test data and reset offset
-                  setTestData(null);
-                  setTestDateOffset(0);
-                }
-                setTestMode(!testMode);
-              }}
-              className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
-                testMode 
-                  ? 'bg-red-600 hover:bg-red-700' 
-                  : 'bg-slate-700 hover:bg-slate-600'
-              }`}
-              title="Test Mode"
-            >
-              {testMode ? 'Test Mode ON' : 'Test Mode'}
-            </button>
             <button
               onClick={() => setTempSettings(settings) || setShowSettings(true)}
               className="p-3 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
@@ -471,30 +425,6 @@ export default function ChoreTracker() {
                   />
                 </div>
 
-                {testMode && (
-                  <>
-                    <hr className="border-slate-600" />
-                    <div>
-                      <label className="block text-sm font-semibold mb-2">Test Mode: Day Offset</label>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => setTestDateOffset(testDateOffset - 1)}
-                          className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-2 rounded-lg transition-colors"
-                        >
-                          ‚Üê Back 1 Day
-                        </button>
-                        <button
-                          onClick={() => setTestDateOffset(testDateOffset + 1)}
-                          className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-2 rounded-lg transition-colors"
-                        >
-                          Forward 1 Day ‚Üí
-                        </button>
-                      </div>
-                      <p className="text-xs text-slate-400 mt-2">Current offset: {testDateOffset} days</p>
-                    </div>
-                  </>
-                )}
-
                 <button
                   onClick={handleSaveSettings}
                   className="w-full mt-6 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg transition-colors flex items-center justify-center gap-2"
@@ -578,18 +508,16 @@ export default function ChoreTracker() {
                 <Plus size={16} />
                 Log Duty
               </button>
+              <button
+                onClick={() => handleRemoveDishDuty(user)}
+                className="w-full mt-2 bg-slate-600 hover:bg-slate-500 text-white font-semibold py-2 rounded-lg transition-colors text-sm flex items-center justify-center gap-2"
+              >
+                Remove Duty
+              </button>
                   </div>
                 );
               })}
             </div>
-
-            <button
-              onClick={resetWeek}
-              className="w-full bg-slate-600 hover:bg-slate-500 text-white font-semibold py-2 rounded-lg transition-colors text-sm flex items-center justify-center gap-2"
-            >
-              <RotateCw size={16} />
-              Reset Week
-            </button>
           </div>
 
           {/* Trash */}
@@ -601,7 +529,7 @@ export default function ChoreTracker() {
                 <div key={user} className="p-4 bg-slate-700 rounded-lg">
                   <p className="text-sm text-slate-300 mb-3">{getName(user)}</p>
                   <div className="flex items-center justify-between mb-3">
-                    <p className="text-3xl font-bold">{workingData.trash[user].bags}</p>
+                    <p className="text-3xl font-bold">{data.trash[user].bags}</p>
                     <p className="text-xs text-slate-400">bags</p>
                   </div>
                   <button
@@ -611,24 +539,22 @@ export default function ChoreTracker() {
                     <Trash2 size={16} />
                     Log Bag
                   </button>
+                  <button
+                    onClick={() => handleRemoveTrash(user)}
+                    className="w-full mt-2 bg-slate-600 hover:bg-slate-500 text-white font-semibold py-2 rounded-lg transition-colors text-sm flex items-center justify-center gap-2"
+                  >
+                    Remove Bag
+                  </button>
                 </div>
               ))}
             </div>
-
-            <button
-              onClick={resetWeek}
-              className="w-full mt-4 bg-slate-600 hover:bg-slate-500 text-white font-semibold py-2 rounded-lg transition-colors text-sm flex items-center justify-center gap-2"
-            >
-              <RotateCw size={16} />
-              Reset Week
-            </button>
           </div>
         </div>
 
         {/* History Dashboard */}
         <div className="bg-slate-800 border border-slate-700 rounded-2xl p-8 mb-8">
           <h2 className="text-xl font-bold mb-6 text-slate-300">Performance History</h2>
-          {Object.keys(workingData.weeklyHistory || {}).length === 0 ? (
+          {Object.keys(data.weeklyHistory || {}).length === 0 ? (
             <p className="text-slate-400">No history yet. Weeks will automatically populate here once 7 days have passed.</p>
           ) : (
             <div className="overflow-x-auto">
@@ -643,7 +569,7 @@ export default function ChoreTracker() {
                   </tr>
                 </thead>
                 <tbody>
-                  {Object.entries(workingData.weeklyHistory || {}).sort().reverse().map(([week, stats]) => (
+                  {Object.entries(data.weeklyHistory || {}).sort().reverse().map(([week, stats]) => (
                     <tr key={week} className="border-b border-slate-700 hover:bg-slate-700 group">
                       <td className="py-3 px-4 text-slate-300">{week}</td>
                       {editingWeek === week ? (
@@ -762,10 +688,10 @@ export default function ChoreTracker() {
         <div className="bg-slate-800 border border-slate-700 rounded-2xl p-8 mb-8">
           <h2 className="text-xl font-bold mb-6 text-slate-300">Bathroom Cleaning History</h2>
           <div className="space-y-2 max-h-48 overflow-y-auto">
-            {workingData.bathroom.history.length === 0 ? (
+            {data.bathroom.history.length === 0 ? (
               <p className="text-slate-400">No bathroom cleanings logged yet.</p>
             ) : (
-              [...workingData.bathroom.history].reverse().map((entry, idx) => (
+              [...data.bathroom.history].reverse().map((entry, idx) => (
                 <div key={idx} className="flex justify-between items-center p-3 bg-slate-700 rounded-lg text-sm">
                   <span>{getName(entry.cleaner)} cleaned</span>
                   <span className="text-slate-400">{new Date(entry.date).toLocaleDateString()}</span>
@@ -780,6 +706,7 @@ export default function ChoreTracker() {
           <button
             onClick={() => {
               const setWorkingData = testMode ? setTestData : setData;
+              const workingData = testMode ? testData : data;
               const newData = { ...workingData };
               newData.bathroom.history = [];
               setWorkingData(newData);
@@ -791,6 +718,7 @@ export default function ChoreTracker() {
           <button
             onClick={() => {
               const setWorkingData = testMode ? setTestData : setData;
+              const workingData = testMode ? testData : data;
               const newData = { ...workingData };
               newData.weeklyHistory = {};
               setWorkingData(newData);
