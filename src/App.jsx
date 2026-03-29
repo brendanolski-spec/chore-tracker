@@ -321,6 +321,14 @@ export default function ChoreTracker() {
     setData(newData);
   };
 
+  const deleteBathroomHistoryEntry = (indexToDelete) => {
+    const newData = { ...data };
+    // Since we're displaying reversed, we need to calculate the actual index
+    const actualIndex = newData.bathroom.history.length - 1 - indexToDelete;
+    newData.bathroom.history.splice(actualIndex, 1);
+    setData(newData);
+  };
+
   const handleSaveSettings = () => {
     setSettings(tempSettings);
     setShowSettings(false);
@@ -792,9 +800,18 @@ export default function ChoreTracker() {
               <p className="text-slate-400">No bathroom cleanings logged yet.</p>
             ) : (
               [...data.bathroom.history].reverse().map((entry, idx) => (
-                <div key={idx} className="flex justify-between items-center p-3 bg-slate-700 rounded-lg text-sm">
+                <div key={idx} className="flex justify-between items-center p-3 bg-slate-700 rounded-lg text-sm group hover:bg-slate-600 transition-colors">
                   <span>{getName(entry.cleaner)} cleaned</span>
-                  <span className="text-slate-400">{new Date(entry.date).toLocaleDateString()}</span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-slate-400">{new Date(entry.date).toLocaleDateString()}</span>
+                    <button
+                      onClick={() => deleteBathroomHistoryEntry(idx)}
+                      className="text-red-400 hover:text-red-300 text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="Delete"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
               ))
             )}
