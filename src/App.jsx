@@ -152,6 +152,39 @@ export default function ChoreTracker() {
   const getName = (u) => u === 'user1' ? (settings?.user1Name || 'You') : (settings?.user2Name || 'Your Brother');
   const getOtherName = (u) => u === 'user1' ? (settings?.user2Name || 'Your Brother') : (settings?.user1Name || 'You');
 
+  const getWeekDateRange = (weekString) => {
+    // Parse week string like "2026-W14"
+    const [year, weekPart] = weekString.split('-W');
+    const weekNum = parseInt(weekPart);
+    const yearNum = parseInt(year);
+    const weekStartDay = settings?.weekStartDay || 0;
+    
+    // Calculate the first day of the year
+    const jan1 = new Date(yearNum, 0, 1);
+    
+    // Calculate the start of week 1 based on custom week start day
+    const firstWeekStart = new Date(jan1);
+    firstWeekStart.setDate(jan1.getDate() - ((jan1.getDay() - weekStartDay + 7) % 7));
+    
+    // Calculate the start of the target week
+    const weekStart = new Date(firstWeekStart);
+    weekStart.setDate(firstWeekStart.getDate() + (weekNum - 1) * 7);
+    
+    // Calculate the end of the week
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+    
+    // Format as MM/DD/YYYY-MM/DD/YYYY
+    const formatDate = (date) => {
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const year = date.getFullYear();
+      return `${month}/${day}/${year}`;
+    };
+    
+    return `${formatDate(weekStart)}-${formatDate(weekEnd)}`;
+  };
+
   const handleBathroomClean = (cleaner) => {
     const newData = { ...data };
     const other = getOther(cleaner);
@@ -280,6 +313,12 @@ export default function ChoreTracker() {
       newData.weeklyHistory[week][metric] = newValue;
       setData(newData);
     }
+  };
+
+  const deletePerformanceHistory = (week) => {
+    const newData = { ...data };
+    delete newData.weeklyHistory[week];
+    setData(newData);
   };
 
   const handleSaveSettings = () => {
@@ -625,7 +664,7 @@ export default function ChoreTracker() {
                 <tbody>
                   {Object.entries(data.weeklyHistory || {}).sort().reverse().map(([week, stats]) => (
                     <tr key={week} className="border-b border-slate-700 hover:bg-slate-700 group">
-                      <td className="py-3 px-4 text-slate-300">{week}</td>
+                      <td className="py-3 px-4 text-slate-300">{getWeekDateRange(week)}</td>
                       {editingWeek === week ? (
                         <>
                           <td className="py-3 px-4">
@@ -719,13 +758,20 @@ export default function ChoreTracker() {
                           <td className="py-3 px-4 text-purple-400 font-semibold">{stats.user2Dishes}</td>
                           <td className="py-3 px-4 text-orange-400 font-semibold">{stats.user1Trash}</td>
                           <td className="py-3 px-4 text-orange-400 font-semibold">{stats.user2Trash}</td>
-                          <td className="py-3 px-4 text-right opacity-0 group-hover:opacity-100 transition-opacity">
+                          <td className="py-3 px-4 text-right opacity-0 group-hover:opacity-100 transition-opacity flex gap-2 justify-end">
                             <button
                               onClick={() => setEditingWeek(week)}
                               className="text-slate-400 hover:text-slate-200 text-sm"
                               title="Edit"
                             >
                               Edit
+                            </button>
+                            <button
+                              onClick={() => deletePerformanceHistory(week)}
+                              className="text-red-400 hover:text-red-300 text-sm"
+                              title="Delete"
+                            >
+                              Delete
                             </button>
                           </td>
                         </>
