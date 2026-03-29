@@ -612,7 +612,7 @@ export default function ChoreTracker() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
           {/* Bathroom */}
           <div className="lg:col-span-1 bg-slate-800 border border-slate-700 rounded-2xl p-8">
-            <h2 className="text-xl font-bold mb-6 text-blue-400">Bathroom</h2>
+            <h2 className="text-xl font-bold mb-6 text-blue-400">Bathroom Cleaning</h2>
             
             <div className="mb-6 p-4 bg-slate-700 rounded-lg">
               <p className="text-sm text-slate-300 mb-2">Current Turn</p>
@@ -650,7 +650,7 @@ export default function ChoreTracker() {
 
           {/* Dish Duty */}
           <div className="lg:col-span-1 bg-slate-800 border border-slate-700 rounded-2xl p-8">
-            <h2 className="text-xl font-bold mb-6 text-green-400">Dish Duty</h2>
+            <h2 className="text-xl font-bold mb-6 text-green-400">Dish Washing</h2>
             
             <div className="space-y-4 mb-6">
               {['user1', 'user2'].map((user) => {
@@ -664,7 +664,7 @@ export default function ChoreTracker() {
                     <div className="flex items-end justify-between mb-3">
                       <div>
                         <p className="text-3xl font-bold">{dishes.completed}</p>
-                        <p className="text-xs text-slate-400">of {targetDuties} duties</p>
+                        <p className="text-xs text-slate-400">of {targetDuties} completed</p>
                       </div>
                       {dishes.penaltyDays > 0 && (
                         <span className="text-xs bg-red-700 px-2 py-1 rounded text-red-100">
@@ -693,7 +693,7 @@ export default function ChoreTracker() {
 
           {/* Trash */}
           <div className="lg:col-span-1 bg-slate-800 border border-slate-700 rounded-2xl p-8">
-            <h2 className="text-xl font-bold mb-6 text-orange-400">Trash</h2>
+            <h2 className="text-xl font-bold mb-6 text-orange-400">Taking Out Trash</h2>
             
             <div className="space-y-4">
               {['user1', 'user2'].map((user) => (
