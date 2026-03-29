@@ -7,6 +7,7 @@ export default function ChoreTracker() {
   const [settings, setSettings] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [tempSettings, setTempSettings] = useState(null);
+  const [tempLastCleaningDate, setTempLastCleaningDate] = useState(null);
   const [loading, setLoading] = useState(true);
   const [testMode, setTestMode] = useState(false);
   const [testDateOffset, setTestDateOffset] = useState(0);
@@ -185,8 +186,31 @@ export default function ChoreTracker() {
     return `${formatDate(weekStart)}-${formatDate(weekEnd)}`;
   };
 
+  const formatDateForDisplay = (isoString) => {
+    if (!isoString) return '';
+    const date = new Date(isoString);
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${month}/${day}/${year}`;
+  };
+
+  const parseDisplayDate = (displayString) => {
+    if (!displayString) return null;
+    // Expected format: MM/DD/YYYY
+    const parts = displayString.split('/');
+    if (parts.length !== 3) return null;
+    const month = parseInt(parts[0]) - 1;
+    const day = parseInt(parts[1]);
+    const year = parseInt(parts[2]);
+    const date = new Date(year, month, day);
+    return date.toISOString();
+  };
+
   const handleBathroomClean = (cleaner) => {
-    const newData = { ...data };
+    const workingData = testMode ? testData : data;
+    const setWorkingData = testMode ? setTestData : setData;
+    const newData = { ...workingData };
     const other = getOther(cleaner);
     
     const now = new Date();
@@ -205,7 +229,7 @@ export default function ChoreTracker() {
       newData.dishes[other].penaltyDays = 0;
     }
 
-    setData(newData);
+    setWorkingData(newData);
   };
 
   const getBathroomStatus = () => {
@@ -239,7 +263,9 @@ export default function ChoreTracker() {
   };
 
   const handleDishDuty = (user) => {
-    const newData = { ...data };
+    const workingData = testMode ? testData : data;
+    const setWorkingData = testMode ? setTestData : setData;
+    const newData = { ...workingData };
     const currentWeek = getCurrentWeek();
     
     if (newData.dishes[user].week !== currentWeek) {
@@ -247,11 +273,13 @@ export default function ChoreTracker() {
     }
     
     newData.dishes[user].completed += 1;
-    setData(newData);
+    setWorkingData(newData);
   };
 
   const handleRemoveDishDuty = (user) => {
-    const newData = { ...data };
+    const workingData = testMode ? testData : data;
+    const setWorkingData = testMode ? setTestData : setData;
+    const newData = { ...workingData };
     const currentWeek = getCurrentWeek();
     
     if (newData.dishes[user].week !== currentWeek) {
@@ -259,7 +287,7 @@ export default function ChoreTracker() {
     }
     
     newData.dishes[user].completed = Math.max(0, newData.dishes[user].completed - 1);
-    setData(newData);
+    setWorkingData(newData);
   };
 
   const applyPenaltyAutomatically = () => {
@@ -268,7 +296,9 @@ export default function ChoreTracker() {
     
     const currentWeek = getCurrentWeek();
     const nextCleaner = bathroomStatus.currentTurn;
-    const newData = { ...data };
+    const workingData = testMode ? testData : data;
+    const setWorkingData = testMode ? setTestData : setData;
+    const newData = { ...workingData };
     
     if (newData.dishes[nextCleaner].week !== currentWeek) {
       newData.dishes[nextCleaner] = { completed: 0, week: currentWeek, penaltyDays: 0 };
@@ -277,12 +307,14 @@ export default function ChoreTracker() {
     // Always update to the current penalty value (not just if it's 0)
     if (newData.dishes[nextCleaner].penaltyDays !== bathroomStatus.penalty) {
       newData.dishes[nextCleaner].penaltyDays = bathroomStatus.penalty;
-      setData(newData);
+      setWorkingData(newData);
     }
   };
 
   const handleTrash = (user) => {
-    const newData = { ...data };
+    const workingData = testMode ? testData : data;
+    const setWorkingData = testMode ? setTestData : setData;
+    const newData = { ...workingData };
     const currentWeek = getCurrentWeek();
     
     if (newData.trash[user].week !== currentWeek) {
@@ -290,11 +322,13 @@ export default function ChoreTracker() {
     }
     
     newData.trash[user].bags += 1;
-    setData(newData);
+    setWorkingData(newData);
   };
 
   const handleRemoveTrash = (user) => {
-    const newData = { ...data };
+    const workingData = testMode ? testData : data;
+    const setWorkingData = testMode ? setTestData : setData;
+    const newData = { ...workingData };
     const currentWeek = getCurrentWeek();
     
     if (newData.trash[user].week !== currentWeek) {
@@ -302,36 +336,54 @@ export default function ChoreTracker() {
     }
     
     newData.trash[user].bags = Math.max(0, newData.trash[user].bags - 1);
-    setData(newData);
+    setWorkingData(newData);
   };
 
   const updatePerformanceHistory = (week, metric, change) => {
-    const newData = { ...data };
+    const workingData = testMode ? testData : data;
+    const setWorkingData = testMode ? setTestData : setData;
+    const newData = { ...workingData };
     
     if (newData.weeklyHistory[week]) {
       const newValue = Math.max(0, newData.weeklyHistory[week][metric] + change);
       newData.weeklyHistory[week][metric] = newValue;
-      setData(newData);
+      setWorkingData(newData);
     }
   };
 
   const deletePerformanceHistory = (week) => {
-    const newData = { ...data };
+    const workingData = testMode ? testData : data;
+    const setWorkingData = testMode ? setTestData : setData;
+    const newData = { ...workingData };
     delete newData.weeklyHistory[week];
-    setData(newData);
+    setWorkingData(newData);
   };
 
   const deleteBathroomHistoryEntry = (indexToDelete) => {
-    const newData = { ...data };
+    const workingData = testMode ? testData : data;
+    const setWorkingData = testMode ? setTestData : setData;
+    const newData = { ...workingData };
     // Since we're displaying reversed, we need to calculate the actual index
     const actualIndex = newData.bathroom.history.length - 1 - indexToDelete;
     newData.bathroom.history.splice(actualIndex, 1);
-    setData(newData);
+    setWorkingData(newData);
   };
 
   const handleSaveSettings = () => {
     setSettings(tempSettings);
+    
+    // Save last cleaning date if it was changed
+    if (tempLastCleaningDate) {
+      const newDate = parseDisplayDate(tempLastCleaningDate);
+      if (newDate) {
+        const newData = { ...data };
+        newData.bathroom.lastCleanDate = newDate;
+        setData(newData);
+      }
+    }
+    
     setShowSettings(false);
+    setTempLastCleaningDate(null);
   };
 
   if (loading || !data || !settings) {
@@ -375,7 +427,11 @@ export default function ChoreTracker() {
               {testMode ? 'Test Mode ON' : 'Test Mode'}
             </button>
             <button
-              onClick={() => setTempSettings(settings) || setShowSettings(true)}
+              onClick={() => {
+                setTempSettings(settings);
+                setTempLastCleaningDate(formatDateForDisplay(data.bathroom.lastCleanDate));
+                setShowSettings(true);
+              }}
               className="p-3 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
               title="Settings"
             >
@@ -417,6 +473,20 @@ export default function ChoreTracker() {
                     onChange={(e) => setTempSettings({...tempSettings, user2Name: e.target.value})}
                     className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white"
                   />
+                </div>
+
+                <hr className="border-slate-600" />
+
+                <div>
+                  <label className="block text-sm font-semibold mb-2">Last Bathroom Cleaning Date</label>
+                  <input
+                    type="text"
+                    placeholder="MM/DD/YYYY"
+                    value={tempLastCleaningDate || ''}
+                    onChange={(e) => setTempLastCleaningDate(e.target.value)}
+                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white"
+                  />
+                  <p className="text-xs text-slate-400 mt-1">Updates automatically when bathroom is cleaned</p>
                 </div>
 
                 <hr className="border-slate-600" />
