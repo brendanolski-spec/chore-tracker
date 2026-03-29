@@ -3,10 +3,13 @@ import { Plus, RotateCw, Trash2, Settings, X, Save } from 'lucide-react';
 
 export default function ChoreTracker() {
   const [data, setData] = useState(null);
+  const [testData, setTestData] = useState(null);
   const [settings, setSettings] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [tempSettings, setTempSettings] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [testMode, setTestMode] = useState(false);
+  const [testDateOffset, setTestDateOffset] = useState(0);
   const [editingWeek, setEditingWeek] = useState(null);
 
   // Initialize data and settings
@@ -176,10 +179,11 @@ export default function ChoreTracker() {
     if (!data?.bathroom || !settings) return null;
     const lastClean = new Date(data.bathroom.lastCleanDate);
     const now = new Date();
+    const adjustedNow = new Date(now.getTime() + testDateOffset * 24 * 60 * 60 * 1000);
     
     // Calculate days elapsed based on calendar dates
     const lastCleanDate = new Date(lastClean.getFullYear(), lastClean.getMonth(), lastClean.getDate());
-    const todayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const todayDate = new Date(adjustedNow.getFullYear(), adjustedNow.getMonth(), adjustedNow.getDate());
     const daysElapsed = Math.floor((todayDate - lastCleanDate) / (1000 * 60 * 60 * 24));
     
     const nextCleaner = data.bathroom.lastCleaner === 'user1' ? 'user2' : 'user1';
@@ -287,6 +291,10 @@ export default function ChoreTracker() {
     return <div className="flex items-center justify-center h-screen bg-gradient-to-br from-slate-900 to-slate-800 text-white">Loading...</div>;
   }
 
+  if (testMode && !testData) {
+    return <div className="flex items-center justify-center h-screen bg-gradient-to-br from-slate-900 to-slate-800 text-white">Loading test mode...</div>;
+  }
+
   const workingData = testMode ? testData : data;
   const bathroomStatus = getBathroomStatus();
   const currentWeek = getCurrentWeek();
@@ -298,6 +306,27 @@ export default function ChoreTracker() {
         <div className="flex justify-between items-center mb-12">
           <h1 className="text-4xl font-bold tracking-tight">Chore Tracker</h1>
           <div className="flex gap-4 items-center">
+            <button
+              onClick={() => {
+                if (!testMode) {
+                  // Entering test mode - create a snapshot of live data
+                  setTestData(JSON.parse(JSON.stringify(data)));
+                } else {
+                  // Exiting test mode - discard test data and reset offset
+                  setTestData(null);
+                  setTestDateOffset(0);
+                }
+                setTestMode(!testMode);
+              }}
+              className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
+                testMode 
+                  ? 'bg-red-600 hover:bg-red-700' 
+                  : 'bg-slate-700 hover:bg-slate-600'
+              }`}
+              title="Test Mode"
+            >
+              {testMode ? 'Test Mode ON' : 'Test Mode'}
+            </button>
             <button
               onClick={() => setTempSettings(settings) || setShowSettings(true)}
               className="p-3 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
@@ -425,6 +454,30 @@ export default function ChoreTracker() {
                     className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white"
                   />
                 </div>
+
+                {testMode && (
+                  <>
+                    <hr className="border-slate-600" />
+                    <div>
+                      <label className="block text-sm font-semibold mb-2">Test Mode: Day Offset</label>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setTestDateOffset(testDateOffset - 1)}
+                          className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-2 rounded-lg transition-colors"
+                        >
+                          Back 1 Day
+                        </button>
+                        <button
+                          onClick={() => setTestDateOffset(testDateOffset + 1)}
+                          className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-2 rounded-lg transition-colors"
+                        >
+                          Forward 1 Day
+                        </button>
+                      </div>
+                      <p className="text-xs text-slate-400 mt-2">Current offset: {testDateOffset} days</p>
+                    </div>
+                  </>
+                )}
 
                 <button
                   onClick={handleSaveSettings}
@@ -706,11 +759,13 @@ export default function ChoreTracker() {
         <div className="flex justify-center gap-4">
           <button
             onClick={() => {
-              const setWorkingData = testMode ? setTestData : setData;
-              const workingData = testMode ? testData : data;
               const newData = { ...workingData };
               newData.bathroom.history = [];
-              setWorkingData(newData);
+              if (testMode) {
+                setTestData(newData);
+              } else {
+                setData(newData);
+              }
             }}
             className="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-6 rounded-lg transition-colors"
           >
@@ -718,11 +773,13 @@ export default function ChoreTracker() {
           </button>
           <button
             onClick={() => {
-              const setWorkingData = testMode ? setTestData : setData;
-              const workingData = testMode ? testData : data;
               const newData = { ...workingData };
               newData.weeklyHistory = {};
-              setWorkingData(newData);
+              if (testMode) {
+                setTestData(newData);
+              } else {
+                setData(newData);
+              }
             }}
             className="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-6 rounded-lg transition-colors"
           >
